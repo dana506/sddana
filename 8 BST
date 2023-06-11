@@ -1,0 +1,272 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
+#include <malloc.h>
+#include <string.h>
+#include <stdlib.h>
+
+union Reference
+{
+	unsigned char intRef;
+	unsigned short extRef;
+};
+
+typedef union Reference RefInfo;
+
+struct Student
+{
+	char* name;
+	double income;
+	RefInfo reference;
+};
+
+typedef struct Student StudentInfo;
+
+struct BST
+{
+	StudentInfo* info;
+	struct BST* left;
+	struct BST* right;
+	unsigned char bFactor;
+};
+typedef struct BST BST;
+
+//useful info memory management
+StudentInfo* createStudentInfo(const char*, double, unsigned short);
+void* deleteStudentInfo(StudentInfo*);
+void displayStudents(StudentInfo**, int);
+void displayStudent(StudentInfo*);
+void insertBST(BST**, StudentInfo*);
+void inordine(BST*);
+int getHeight(BST*);
+BST* rightRotation(BST*);
+BST* leftRotation(BST*);
+BST* rebalance(BST*);
+void deleteBST(BST**, unsigned char);
+BST* createNode(StudentInfo*);
+void deleteFullNode(BST**, BST**);
+#define LINE_SIZE 128
+
+void main()
+{
+	FILE* pFile = fopen("Data.txt", "r");
+	BST* binarySearchTree = NULL;
+	if (pFile)
+	{
+		StudentInfo* agenda[10];
+		memset(agenda, 0, sizeof(agenda));
+		char* token; char delimiter[] = ",\n";
+		double income; unsigned short ref;
+		char lineBuffer[LINE_SIZE], name[LINE_SIZE];
+		int index = 0;
+		while (fgets(lineBuffer, sizeof(lineBuffer), pFile))
+		{
+			token = strtok(lineBuffer, delimiter);
+			strcpy(name, token);
+			token = strtok(NULL, delimiter);
+			income = atof(token);
+			token = strtok(NULL, delimiter);
+			ref = atoi(token);
+			StudentInfo* stud = createStudentInfo(name, income, ref);
+			insertBST(&binarySearchTree, stud);
+		}
+		//displayStudents(agenda, sizeof(agenda) / sizeof(StudentInfo*));
+		inordine(binarySearchTree);
+		deleteBST(&binarySearchTree, 56);
+		printf("\n---------------------------\n");
+		inordine(binarySearchTree);
+		fclose(pFile);
+	}
+}
+
+
+StudentInfo* createStudentInfo(const char* name, double income, unsigned short ref)
+{
+	StudentInfo* result = NULL;
+
+	result = (StudentInfo*)malloc(sizeof(StudentInfo));
+	result->name = (char*)malloc(strlen(name) + 1);
+	strcpy(result->name, name);
+	result->income = income;
+	result->reference.extRef = ref;
+	return result;
+
+}
+
+void* deleteStudentInfo(StudentInfo* stud)
+{
+	if (stud != NULL)
+	{
+		free(stud->name);
+		free(stud);
+	}
+	return NULL;
+}
+
+void displayStudents(StudentInfo** agenda, int noEl)
+{
+	for (int i = 0; i < noEl; i++)
+	{
+		displayStudent(agenda[i]);
+	}
+}
+
+void displayStudent(StudentInfo* stud)
+{
+	if (stud)
+	{
+		printf("Name: %s, income: %f\n", stud->name, stud->income);
+		if (stud->reference.extRef >> 15 == 1)
+		{
+			short uid = stud->reference.extRef >> 8 & 127;
+			printf("University ref: %d\n", uid);
+			printf("External ref: %d\n", stud->reference.extRef & 255);
+		}
+		else
+		{
+			printf("Internal ref: %d\n", stud->reference.intRef);
+		}
+	}
+}
+
+void insertBST(BST** root, StudentInfo* stud)
+{
+	if (*root == NULL)
+		*root = createNode(stud);
+	else
+	{
+		if (stud->reference.intRef < (*root)->info->reference.intRef)
+			insertBST(&(*root)->left, stud);
+		else
+			if (stud->reference.intRef > (*root)->info->reference.intRef)
+				insertBST(&(*root)->right, stud);
+			else
+			{
+				deleteStudentInfo((*root)->info);
+				free(*root);
+				*root = createNode(stud);
+			}
+	}
+	*root = rebalance(*root);
+}
+
+void inordine(BST* root)
+{
+	if (root)
+	{
+		inordine(root->left);
+		displayStudent(root->info);
+		inordine(root->right);
+	}
+}
+
+int getHeight(BST* root)
+{
+	if (root)
+		return 1 + max(getHeight(root->left), getHeight(root->right));
+	else
+		return 0;
+}
+
+
+BST* rightRotation(BST* pivot)
+{
+	BST* desc = pivot->left;
+	pivot->left = desc->right;
+	desc->right = pivot;
+	return desc;
+}
+BST* leftRotation(BST* pivot)
+{
+	BST* desc = pivot->right;
+	pivot->right = desc->left;
+	desc->left = pivot;
+	return desc;
+}
+
+BST* rebalance(BST* pivot)
+{
+	pivot->bFactor = getHeight(pivot->right) - getHeight(pivot->left);
+	BST* desc = NULL;
+	if (pivot->bFactor == -2)
+	{
+		desc = pivot->left;
+		if (desc->bFactor == -1)
+			pivot = rightRotation(pivot);
+		else
+		{
+			//double rotation
+			pivot->left = leftRotation(desc);
+			pivot = rightRotation(pivot);
+		}
+	}
+	else if (pivot->bFactor == 2)
+	{
+		desc = pivot->right;
+		if (desc->bFactor == 1)
+			pivot = leftRotation(pivot);
+		else
+		{
+			//double rotation
+			pivot->right = rightRotation(desc);
+			pivot = leftRotation(pivot);
+		}
+	}
+	return pivot;
+}
+
+void deleteBST(BST** root, unsigned char key)
+{
+	if (*root != NULL)
+	{
+		if ((*root)->info->reference.intRef > key)
+			deleteBST(&(*root)->left, key);
+		else if ((*root)->info->reference.intRef < key)
+			deleteBST(&(*root)->right, key);
+		else
+		{
+			//leaf node
+			if ((*root)->right == NULL && (*root)->left == NULL)
+			{
+				deleteStudentInfo((*root)->info);
+				free(*root);
+				*root = NULL;
+			}//one descendent
+			else if ((*root)->right == NULL || (*root)->left == NULL)
+			{
+				BST* tmp = *root;
+				*root = (*root)->right ? (*root)->right : (*root)->left;
+				deleteStudentInfo(tmp->info);
+				free(tmp);
+			}
+			else
+			{
+				deleteFullNode(root, &(*root)->right);
+			}
+		}
+	}
+}
+
+BST* createNode(StudentInfo* stud)
+{
+	BST* node = NULL;
+	node = (BST*)malloc(sizeof(BST));
+	node->info = stud;
+	node->left = node->right = NULL;
+	node->bFactor = 0;
+	return node;
+}
+
+void deleteFullNode(BST** root, BST** rightSubtree)
+{
+	if ((*rightSubtree)->left)
+		deleteFullNode(root, &(*rightSubtree)->left);
+	else
+	{
+		StudentInfo* aux = (*root)->info;
+		(*root)->info = (*rightSubtree)->info;
+		deleteStudentInfo(aux);
+		BST* tmp = *rightSubtree;
+		*rightSubtree = tmp->right;
+		free(tmp);
+	}
+}
