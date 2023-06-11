@@ -1,0 +1,124 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+struct Neighbour
+{
+	int value;
+	struct Neighbour* next;
+};
+struct Vertex
+{
+	int value;
+	struct Vertex* next;
+	struct Neighbour* neighbours;
+};
+typedef struct Neighbour Neighbour;
+typedef struct Vertex Vertex;
+typedef struct Vertex* Graph;
+void convertAdjacencyList2Matrix(Graph, int**, int);
+
+Vertex* searchVertex(Graph graph, int value)
+{
+	while (graph && graph->value != value)
+	{
+		graph = graph->next;
+	}
+	return graph;
+}
+void insertNeighbour(Vertex* vertex, int neighbourValue)
+{
+	Neighbour* neighbour = (Neighbour*)malloc(sizeof(Neighbour));
+	neighbour->value = neighbourValue;
+	neighbour->next = vertex->neighbours;
+	vertex->neighbours = neighbour;
+}
+void addEdge(Graph* graph, int src, int dst)
+{
+	Vertex* srcVertex = searchVertex(*graph, src);
+	if (srcVertex == NULL)
+	{
+		//insert the new vertex
+		srcVertex = (Vertex*)malloc(sizeof(Vertex));
+		srcVertex->neighbours = NULL;
+		srcVertex->value = src;
+		srcVertex->next = *graph;
+		*graph = srcVertex;
+	}
+	insertNeighbour(srcVertex, dst);
+	Vertex* dstVertex = searchVertex(*graph, dst);
+	if (dstVertex == NULL)
+	{
+		//insert the new dst vertex
+		dstVertex = (Vertex*)malloc(sizeof(Vertex));
+		dstVertex->neighbours = NULL;
+		dstVertex->value = dst;
+		dstVertex->next = *graph;
+		*graph = dstVertex;
+	}
+	insertNeighbour(dstVertex, src);
+}
+void printGraph(Graph graph, int* noVertices)
+{
+	while (graph)
+	{
+		(*noVertices)++;
+		printf("Vertex %3d: ", graph->value);
+		Neighbour* neighbour = graph->neighbours;
+		while (neighbour)
+		{
+			printf("%4d", neighbour->value);
+			neighbour = neighbour->next;
+		}
+		printf("\n");
+		graph = graph->next;
+	}
+}
+void main()
+{
+	Graph graph = NULL;
+	addEdge(&graph, 1, 2);
+	addEdge(&graph, 1, 4);
+	addEdge(&graph, 1, 5);
+	addEdge(&graph, 2, 5);
+	addEdge(&graph, 3, 5);
+	addEdge(&graph, 3, 6);
+	addEdge(&graph, 4, 6);
+	addEdge(&graph, 5, 6);
+
+	int noNodes = 0;
+	printGraph(graph, &noNodes);
+
+	int** adjacencyMatrix;
+	adjacencyMatrix = (int**)malloc(noNodes * sizeof(int*));
+	for (int i = 0; i < noNodes; i++)
+	{
+		adjacencyMatrix[i] = (int*)malloc(noNodes * sizeof(int));
+		memset(adjacencyMatrix[i], 0, noNodes * sizeof(int));
+	}
+	convertAdjacencyList2Matrix(graph, adjacencyMatrix, noNodes);
+}
+
+void convertAdjacencyList2Matrix(Graph graph, int** matrix, int noVertices)
+{
+	while (graph)
+	{
+		Neighbour* neighbour = graph->neighbours;
+		while (neighbour)
+		{
+			matrix[graph->value - 1][neighbour->value - 1] = 1;
+			matrix[neighbour->value - 1][graph->value - 1] = 1;
+			neighbour = neighbour->next;
+		}
+		graph = graph->next;
+	}
+
+	for (int i = 0; i < noVertices; i++)
+	{
+		for (int j = 0; j < noVertices; j++)
+		{
+			printf("%2d", matrix[i][j]);
+		}
+		printf("\n");
+	}
+}
